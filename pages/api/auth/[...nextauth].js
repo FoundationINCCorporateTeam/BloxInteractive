@@ -1,45 +1,33 @@
-import NextAuth from 'next-auth';
-import Providers from 'next-auth/providers';
-import { findUser, verifyPassword } from '../../../lib/auth';
+// pages/api/register.js
 
-export default NextAuth({
-  providers: [
-    Providers.Credentials({
-      name: 'Credentials',
-      credentials: {
-        username: { label: 'Username', type: 'text' },
-        password: { label: 'Password', type: 'password' }
-      },
-      authorize: async (credentials) => {
-        const user = await findUser(credentials.username);
+import { hashPassword } from '../../lib/auth';
+import { addUser, findUser } from '../../lib/db';
 
-        if (!user) {
-          throw new Error('No user found');
-        }
-
-        const isValid = await verifyPassword(credentials.password, user.password);
-
-        if (!isValid) {
-          throw new Error('Could not log you in!');
-        }
-
-        return { id: user.id, name: user.username, email: user.email };
-      }
-    })
-  ],
-  pages: {
-    signIn: '/login'
-  },
-  callbacks: {
-    async session(session, user) {
-      session.user = user;
-      return session;
-    },
-    async jwt(token, user) {
-      if (user) {
-        token.id = user.id;
-      }
-      return token;
-    }
+export default async (req, res) => {
+  if (req.method !== 'POST') {
+    return;
   }
-});
+
+  const { username, password } = req.body;
+
+  if (!username || !password) {
+    res.status(422).json({ message: 'Invalid input.' });
+    return;
+  }
+
+  const existingUser = await findUser(username);
+
+  if (existingUser) {
+    res.status(422).json({ message: 'User exists already!' });
+    return;
+  }
+
+  const hashedPassword = await hashPassword(password);
+
+  const result = await addUser({
+    username,
+    password: hashedPassword
+  });
+
+  res.status(201).json({ message: 'Created user!' });
+};

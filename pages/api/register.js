@@ -1,3 +1,5 @@
+// pages/api/register.js
+
 import { hashPassword } from '../../lib/auth';
 import { addUser, findUser } from '../../lib/db';
 
